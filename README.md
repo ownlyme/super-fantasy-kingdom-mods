@@ -39,3 +39,6 @@ Needs Super Fantasy Kingdom installed. Open each .csproj and set the two paths n
 dotnet build -c Release
 
 Move the DLL from "bin/Release/" into "BepInEx/plugins/"
+
+## Support
+[https://www.patreon.com/c/OwnlyMods](https://www.patreon.com/c/OwnlyMods)
