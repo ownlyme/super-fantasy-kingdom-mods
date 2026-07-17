@@ -1,0 +1,9 @@
+# build output
+bin/
+obj/
+
+# packaged zips
+dist/
+
+# decompiled game source
+_GameSource/
