@@ -6,4 +6,4 @@ obj/
 dist/
 
 # decompiled game source
-_GameSource/
+_GameSource*/

@@ -1,0 +1,9 @@
+{
+  "name": "PortraitLevels",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/ownlyme/super-fantasy-kingdom-mods",
+  "description": "Displays unit levels on the summary screen and the tavern damage meters",
+  "dependencies": [
+    "BepInEx-BepInExPack-5.4.2304"
+  ]
+}

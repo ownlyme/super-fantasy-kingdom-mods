@@ -24,6 +24,9 @@ The first spell you cast each day is free, combat or city.
 **[Lone Bonfire](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/LoneBonfire.dll)**  
 You can build only one bonfire, and it scales: +10% monsters for every outpost you built, instead of a flat +10%.  
 
+**[Portrait Levels](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/PortraitLevels.dll)**  
+Displays unit levels on the summary screen and the tavern damage meters.
+
 ## Install
 
 1. Install BepInEx 5 (Mono) into your Super Fantasy Kingdom folder
