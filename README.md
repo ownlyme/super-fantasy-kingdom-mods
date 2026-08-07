@@ -27,17 +27,20 @@ You can build only one bonfire, and it scales: +10% monsters for every outpost s
 **[Portrait Levels](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/PortraitLevels.dll)**  
 Displays unit levels on the summary screen and the tavern damage meters.
 
+**[Live Damage Meter](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/LiveDamageMeter.dll)**  
+Shows the top damage dealers live while you watch the fight, instead of having to wait until entering the tavern.
+
 ## Install
 
 1. Install BepInEx 5 (Mono) into your Super Fantasy Kingdom folder
 2. Drop the .dll files you want into "BepInEx/plugins/"
 3. Run the game, the mods load on their own
 
-Tested with the Xbox Game Pass version. Steam should work too.
+Tested with the Steam version. The Xbox Game Pass build should work too.
 
 ## Build
 
-Needs Super Fantasy Kingdom installed. Open each .csproj and set the two paths near the top ("BepInExCore" and "GameManaged") to your install, then:
+Needs Super Fantasy Kingdom installed. The .csproj files use paths relative to a BepInEx install ("BepInExCore" and "GameManaged"), so put this repo in "BepInEx/_modsrc", then:
 
 dotnet build -c Release
 

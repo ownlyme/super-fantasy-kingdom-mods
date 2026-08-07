@@ -1,0 +1,9 @@
+{
+  "name": "LiveDamageMeter",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/ownlyme/super-fantasy-kingdom-mods",
+  "description": "Live damage meter on the left edge while the camera is on the battlefield",
+  "dependencies": [
+    "BepInEx-BepInExPack-5.4.2304"
+  ]
+}
