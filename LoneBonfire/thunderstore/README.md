@@ -2,7 +2,9 @@
 
 # Lone Bonfire
 
-You can build only one bonfire, and it scales: +10% monsters for every outpost you built, instead of a flat +10%.
+You can build only one bonfire, and it scales: +10% monsters for every outpost spot you have revealed, instead of a flat +10%.
+
+The build menu shows what it is worth before you buy it.
 
 # 🔧 Installation
 ## Manual Installation
