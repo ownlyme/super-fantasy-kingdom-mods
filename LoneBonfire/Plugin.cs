@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace LoneBonfire
 {
-	[BepInPlugin("ownly.lonebonfire", "Lone Bonfire", "1.1.0")]
+	[BepInPlugin("ownly.lonebonfire", "Lone Bonfire", "1.1.1")]
 	public class Plugin : BaseUnityPlugin
 	{
 		private void Awake()

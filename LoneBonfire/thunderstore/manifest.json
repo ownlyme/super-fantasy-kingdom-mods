@@ -1,6 +1,6 @@
 {
   "name": "LoneBonfire",
-  "version_number": "1.1.0",
+  "version_number": "1.1.1",
   "website_url": "https://github.com/ownlyme/super-fantasy-kingdom-mods",
   "description": "You can build only one bonfire, and it scales: +10% monsters for every outpost spot you have revealed.",
   "dependencies": [
