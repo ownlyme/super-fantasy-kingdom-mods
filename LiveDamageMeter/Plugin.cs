@@ -29,17 +29,43 @@ namespace LiveDamageMeter
 		}
 	}
 
+	// ------------------------------ make room on the left edge ------------------------------
+
+	// keep some space for the damage meter
+	[HarmonyPatch(typeof(RelicManager), "Awake")]
+	internal static class Patch_Relics
+	{
+		private const int RelicRows = 9;
+
+		private static void Postfix(RelicManager __instance)
+		{
+			try
+			{
+				GridLayoutGroup grid = __instance.GetComponent<GridLayoutGroup>();
+				if (grid == null)
+				{
+					return;
+				}
+				grid.constraint = GridLayoutGroup.Constraint.FixedRowCount;
+				grid.constraintCount = RelicRows;
+			}
+			catch
+			{
+			}
+		}
+	}
+
 	// ------------------------------ live meter ------------------------------
 
 	internal class Meter : MonoBehaviour
 	{
 		// panel layout, canvas units
 		private const int Rows = 7;
-		private const float RowHeight = 21f;
+		private const float RowHeight = 20f;
 		private const float PanelWidth = 200f;
 		private const float EdgeMargin = 14f;
 		// screen fraction the panel's top edge sits at
-		private const float TopEdge = 0.3f;
+		private const float TopEdge = 0.3234f;
 		private const float TextPad = 6f;
 		private const float ValueWidth = 68f;
 		private const float RefreshInterval = 0.1f;
