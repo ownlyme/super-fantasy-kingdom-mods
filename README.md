@@ -30,6 +30,9 @@ Displays unit levels on the summary screen and the tavern damage meters.
 **[Live Damage Meter](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/LiveDamageMeter.dll)**  
 Shows the top damage dealers live while you watch the fight, instead of having to wait until entering the tavern.
 
+**[Right Click Skip](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/RightClickSkip.dll)**  
+Skip anything with right click, including the "New Day" message and the game's splash screens
+
 ## Install
 
 1. Install BepInEx 5 (Mono) into your Super Fantasy Kingdom folder
