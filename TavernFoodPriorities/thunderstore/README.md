@@ -7,6 +7,11 @@ Units eat the most expendable food first, keeping the cook's meat pipeline flowi
 With the FishFilet relic: bread, gourmet, berry, cooked, fish, raw  
 Without it: bread, gourmet, fish, berry, cooked, raw
 
+With the relic, fish gets consumed before berries if you have enough stacked up.
+
+Works for undead too since their foods are just renamed: 
+rat = berry, pumpkin = fish, candy = bread, soul = raw, big soul = cooked, giant soul = gourmet
+
 # 🔧 Installation
 ## Manual Installation
 1. Install BepInEx for Super Fantasy Kingdom.

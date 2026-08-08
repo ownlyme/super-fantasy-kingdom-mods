@@ -4,6 +4,8 @@
 
 Bakeries bake bread straight from wheat, skipping the windmill and flour step.
 
+Windmills stack up to 30 flour, enough for board quests that ask you to gather some.
+
 # 🔧 Installation
 ## Manual Installation
 1. Install BepInEx for Super Fantasy Kingdom.

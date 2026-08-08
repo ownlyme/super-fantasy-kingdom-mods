@@ -1,6 +1,6 @@
 {
   "name": "TavernFoodPriorities",
-  "version_number": "1.6.0",
+  "version_number": "1.7.0",
   "website_url": "https://github.com/ownlyme/super-fantasy-kingdom-mods",
   "description": "Units eat the most expendable food first, keeping the cook's meat pipeline flowing.",
   "dependencies": [

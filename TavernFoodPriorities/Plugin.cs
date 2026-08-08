@@ -7,7 +7,7 @@ using SuperFantasyKingdom.Tavern;
 
 namespace TavernFoodPriorities
 {
-	[BepInPlugin("ownly.tavernfoodpriorities", "Tavern Food Priorities", "1.6.0")]
+	[BepInPlugin("ownly.tavernfoodpriorities", "Tavern Food Priorities", "1.7.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		private void Awake()
@@ -25,6 +25,8 @@ namespace TavernFoodPriorities
 	[HarmonyPatch(typeof(TavernFoodManager), "FindBestFood")]
 	internal static class Patch_FindLowestFood
 	{
+		private const int MeatToCookFallback = 6;
+
 		// relic: fish and raw tie on value but raw upgrades first, so fish goes ahead of raw
 		private static readonly ResourceType[] eatOrderConserveFish =
 		{
@@ -36,7 +38,7 @@ namespace TavernFoodPriorities
 			ResourceType.Raw,
 		};
 
-		// no relic: fish is a dead end, spend it before berries
+		// no relic, or raw already piled up: fish is a dead end, spend it before berries
 		private static readonly ResourceType[] eatOrderSpendFish =
 		{
 			ResourceType.Bread,
@@ -51,14 +53,26 @@ namespace TavernFoodPriorities
 		{
 			List<ResourceAmount> inventory = Traverse.Create(__instance).Field("m_Inventory").GetValue<List<ResourceAmount>>();
 
-			bool cookFish = Traverse.Create(__instance).Field("m_CookFish").GetValue<bool>();
-			ResourceType[] eatOrder = cookFish ? eatOrderConserveFish : eatOrderSpendFish;
-
 			ResourceType result = ResourceType.None;
 			int bestRank = int.MaxValue;
 
 			if (inventory != null)
 			{
+				// everything still in the cooking pipeline
+				int meatAhead = 0;
+				foreach (ResourceAmount item in inventory)
+				{
+					if (item.type == ResourceType.Cooked || item.type == ResourceType.Raw || item.type == ResourceType.Fish)
+					{
+						meatAhead += item.amount;
+					}
+				}
+				// Cook() moves this much meat per visit, upgrades + 1, or + 2 for the undead
+				int meatToCook = (TavernSaveManager.Instance != null) ? TavernSaveManager.Instance.GetMeatToCook() : MeatToCookFallback;
+				// the relic only makes fish worth keeping while the cook can still use more raw
+				bool cookFish = Traverse.Create(__instance).Field("m_CookFish").GetValue<bool>();
+				ResourceType[] eatOrder = (cookFish && meatAhead < meatToCook) ? eatOrderConserveFish : eatOrderSpendFish;
+
 				foreach (ResourceAmount item in inventory)
 				{
 					if (item.amount <= 0)

@@ -1,6 +1,6 @@
 {
   "name": "BakeryUsesWheat",
-  "version_number": "1.1.1",
+  "version_number": "1.2.0",
   "website_url": "https://github.com/ownlyme/super-fantasy-kingdom-mods",
   "description": "Bakeries bake bread straight from wheat, skipping the windmill and flour step.",
   "dependencies": [

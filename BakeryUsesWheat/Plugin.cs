@@ -6,7 +6,7 @@ using SuperFantasyKingdom.Buildings;
 
 namespace BakeryUsesWheat
 {
-	[BepInPlugin("ownly.bakeryuseswheat", "Bakery Uses Wheat", "1.1.1")]
+	[BepInPlugin("ownly.bakeryuseswheat", "Bakery Uses Wheat", "1.2.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		private void Awake()
@@ -20,9 +20,31 @@ namespace BakeryUsesWheat
 	[HarmonyPatch(typeof(BuildingResource), "Init")]
 	internal static class Patch_Bakery
 	{
+		// the most the board quest ever asks for
+		private const int WindmillFlourSpace = 30;
+
 		private static void Prefix(BuildingResource __instance)
 		{
-			if (__instance.GetBuildingType() != BuildingType.Bakery)
+			BuildingType buildingType = __instance.GetBuildingType();
+
+			// nothing consumes flour now, so the mill fills its six output slots and halts
+			if (buildingType == BuildingType.Windmill)
+			{
+				ResourceStorage mill = __instance.GetStorage();
+				if (mill == null)
+					return;
+				List<ResourceAmount> millSlots = Traverse.Create(mill).Field("storage").GetValue<List<ResourceAmount>>();
+				if (millSlots == null)
+					return;
+				for (int i = 0; i < millSlots.Count; i++)
+				{
+					if (millSlots[i].type == ResourceType.Flour)
+						millSlots[i] = new ResourceAmount(ResourceType.Flour, WindmillFlourSpace);
+				}
+				return;
+			}
+
+			if (buildingType != BuildingType.Bakery)
 				return;
 
 			if (__instance is BuildingCrafting crafting)
