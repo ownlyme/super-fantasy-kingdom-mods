@@ -2,10 +2,8 @@
 
 # Live Damage Meter
 
-Shows the top 7 damage dealers on the left edge of the screen while you are watching the fight, instead of having to wait until entering the tavern.
+Shows the top 7 damage dealers on the left edge of the screen while you are watching the fight, instead of having to wait until entering the tavern.  
 Each row displays the unit's portrait, level, name and damage so far today.
-
-The relic list wraps one row sooner to keep some space for it.
 
 # 🔧 Installation
 ## Manual Installation
