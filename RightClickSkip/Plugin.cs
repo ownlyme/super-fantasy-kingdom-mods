@@ -12,16 +12,18 @@ using SplashScreen = UnityEngine.Rendering.SplashScreen;
 
 namespace RightClickSkip
 {
-	[BepInPlugin("ownly.rightclickskip", "Right Click Skip", "1.0.0")]
+	[BepInPlugin("ownly.rightclickskip", "Right Click Skip", "1.1.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		private const int IntervalMs = 25;
 		private const int MaxMs = 20000;
-		private const int StableMs = 2000;
 		private const int VK_RBUTTON = 0x02;
 
 		[DllImport("user32.dll")]
 		private static extern short GetAsyncKeyState(int vKey);
+
+		// set on the main thread, which cannot run until the splash is over
+		private static volatile bool s_Running;
 
 		private void Awake()
 		{
@@ -31,33 +33,30 @@ namespace RightClickSkip
 			pump.Start();
 		}
 
+		private void Update()
+		{
+			s_Running = true;
+		}
+
 		// the splash owns the main loop, no Update until it is over. hence a thread and GetAsyncKeyState
 		// no other unity api off-thread, Time and Debug throw
 		// latched because the engine re-begins the splash after an early stop
+		// never read SplashScreen.isFinished here, that getter dies once the engine tears the splash down
 		private static void SplashPump()
 		{
 			Stopwatch clock = Stopwatch.StartNew();
 			bool skipRequested = false;
-			long lastActive = 0;
 			try
 			{
-				while (clock.ElapsedMilliseconds < MaxMs)
+				while (clock.ElapsedMilliseconds < MaxMs && !s_Running)
 				{
-					if (!SplashScreen.isFinished)
+					if ((GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0)
 					{
-						lastActive = clock.ElapsedMilliseconds;
-						if ((GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0)
-						{
-							skipRequested = true;
-						}
-						if (skipRequested)
-						{
-							SplashScreen.Stop(SplashScreen.StopBehavior.StopImmediate);
-						}
+						skipRequested = true;
 					}
-					else if (clock.ElapsedMilliseconds - lastActive > StableMs)
+					if (skipRequested)
 					{
-						break;
+						SplashScreen.Stop(SplashScreen.StopBehavior.StopImmediate);
 					}
 					Thread.Sleep(IntervalMs);
 				}
