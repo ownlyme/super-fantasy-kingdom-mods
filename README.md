@@ -33,6 +33,10 @@ Shows the top damage dealers live while you watch the fight, instead of having t
 **[Right Click Skip](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/RightClickSkip.dll)**  
 Skip anything with right click, including the "New Day" message and the game's splash screens
 
+**[Unlimited Jail](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/UnlimitedJail.dll)**  
+Jail any amount of units, not just 3  
+The first 3 are free, then it costs 1 coin each
+
 ## Install
 
 1. Install BepInEx 5 (Mono) into your Super Fantasy Kingdom folder

@@ -1,0 +1,9 @@
+{
+  "name": "UnlimitedJail",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/ownlyme/super-fantasy-kingdom-mods",
+  "description": "Jail any amount of units, not just 3. The first 3 are free, then it costs 1 coin each",
+  "dependencies": [
+    "BepInEx-BepInExPack-5.4.2304"
+  ]
+}
