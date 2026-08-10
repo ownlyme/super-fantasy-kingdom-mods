@@ -4,7 +4,7 @@
 		<TargetFramework>net48</TargetFramework>
 		<AssemblyName>UnlimitedJail</AssemblyName>
 		<Product>Unlimited Jail</Product>
-		<Version>1.0.0</Version>
+		<Version>1.1.0</Version>
 		<LangVersion>latest</LangVersion>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
@@ -64,6 +64,10 @@
 		</Reference>
 		<Reference Include="Unity.TextMeshPro">
 			<HintPath>$(GameManaged)\Unity.TextMeshPro.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="FMODUnity">
+			<HintPath>$(GameManaged)\FMODUnity.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
 	</ItemGroup>

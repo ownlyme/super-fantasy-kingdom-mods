@@ -2,16 +2,17 @@ using System.Collections.Generic;
 using System.IO;
 using BepInEx;
 using BepInEx.Logging;
+using FMODUnity;
 using HarmonyLib;
 using SuperFantasyKingdom;
 using SuperFantasyKingdom.TitleScreen;
-using TMPro;
+using SuperFantasyKingdom.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace UnlimitedJail
 {
-	[BepInPlugin("ownly.unlimitedjail", "Unlimited Jail", "1.0.0")]
+	[BepInPlugin("ownly.unlimitedjail", "Unlimited Jail", "1.1.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		internal static ManualLogSource Log;
@@ -29,7 +30,7 @@ namespace UnlimitedJail
 	//   m_Banned        - guilds and UIOverlayMerchant, which never read the unlock list at all
 	internal static class Filter
 	{
-		public static void Apply(UnlockedUnitsManager manager, string from)
+		public static void Apply(UnlockedUnitsManager manager)
 		{
 			// no early out on an empty stash - recovering the LAST unit still has bans to lift
 			List<string> stashed = Stash.Units;
@@ -45,7 +46,7 @@ namespace UnlimitedJail
 				}
 			}
 
-			// a RECOVERED unit must lose its ban - the run save restores the list from when it WAS stashed
+			// a RECOVERED unit must lose its ban - the run save restores the list from when it WAS stashed.
 			// safe to clear: forcing the jail to "empty" makes us the only source of a real name
 			banned.RemoveAll((string id) => id != Jail.Empty && !stashed.Contains(id));
 		}
@@ -58,7 +59,7 @@ namespace UnlimitedJail
 		{
 			try
 			{
-				Filter.Apply(__instance, "Awake");
+				Filter.Apply(__instance);
 			}
 			catch
 			{
@@ -74,22 +75,7 @@ namespace UnlimitedJail
 		{
 			try
 			{
-				Filter.Apply(__instance, "SetBannedUnits");
-			}
-			catch
-			{
-			}
-		}
-	}
-
-	[HarmonyPatch(typeof(TitleScreenManager), "Awake")]
-	internal static class Patch_TitleScreenAwake
-	{
-		private static void Postfix(TitleScreenManager __instance)
-		{
-			try
-			{
-				__instance.gameObject.AddComponent<StashPanel>();
+				Filter.Apply(__instance);
 			}
 			catch
 			{
@@ -98,7 +84,7 @@ namespace UnlimitedJail
 	}
 
 	// ------------------------------ the jail takeover ------------------------------
-	// cells open the panel and display what is stashed. nothing is written to the kingdom save
+	// cells open the vanilla selection catalog and show what is stashed, writing nothing to the save
 	internal static class Jail
 	{
 		internal const string Empty = "empty";
@@ -110,7 +96,7 @@ namespace UnlimitedJail
 			if (!string.IsNullOrEmpty(jailed) && jailed != Empty && s_Warned.Add(jailed))
 			{
 				Plugin.Log?.LogWarning("jail slot held " + jailed
-					+ " - the mod frees it, stash it from the panel to keep it held back");
+					+ " - the mod frees it, jail it from the selection screen to keep it held back");
 			}
 			return Empty;
 		}
@@ -128,7 +114,6 @@ namespace UnlimitedJail
 				return;
 			}
 			Unit unit = AddressablesManager.Instance.GetUnit(stashed[index - 1]);
-			// unreachable today, kept for a game update dropping a prefab already in the stash
 			if (unit == null)
 			{
 				Plugin.Log?.LogWarning("stashed unit has no prefab: " + stashed[index - 1]);
@@ -166,30 +151,6 @@ namespace UnlimitedJail
 		private static void Postfix(ref string __result)
 		{
 			__result = Jail.Force(__result);
-		}
-	}
-
-	// that method is what activates the vanilla catalog overlay, so skipping it IS the replacement
-	[HarmonyPatch(typeof(TitleScreenHeroSelectionManager), "OpenJailSelection")]
-	internal static class Patch_OpenJailSelection
-	{
-		private static bool Prefix()
-		{
-			try
-			{
-				StashPanel panel = Object.FindObjectOfType<StashPanel>();
-				if (panel == null)
-				{
-					return true;
-				}
-				panel.OpenFromJail();
-				return false;
-			}
-			catch (System.Exception e)
-			{
-				Plugin.Log?.LogError("could not open the stash from the jail: " + e);
-				return true;
-			}
 		}
 	}
 
@@ -238,8 +199,330 @@ namespace UnlimitedJail
 		}
 	}
 
+	// the ONLY writer of a jail slot, and it must never run - the stash lives outside the save.
+	// stands in for vanilla's other two jobs, restoring gamepad focus and repainting the cells
+	[HarmonyPatch(typeof(TitleScreenJail), "SetJailed")]
+	internal static class Patch_SetJailed
+	{
+		private static bool Prefix(TitleScreenJail __instance)
+		{
+			try
+			{
+				Traverse traverse = Traverse.Create(__instance);
+				int cell = traverse.Field("m_SelectedCell").GetValue<int>();
+				if (cell >= 1 && cell <= 3)
+				{
+					Button button = traverse.Field("jail" + cell + "Button").GetValue<Button>();
+					if (button != null)
+					{
+						GamepadManager.Instance.SetGameObjectToSelect(button.gameObject, force: true);
+					}
+				}
+				traverse.Field("m_SelectedCell").SetValue(0);
+				__instance.Decorate();
+			}
+			catch
+			{
+			}
+			return false;
+		}
+	}
+
+	// ------------------------------ the selection catalog ------------------------------
+	// vanilla's jail catalog, kept open: a click toggles the unit instead of filling a cell
+	internal static class Catalog
+	{
+		// red already means banished here, and cannot read as an unplayed unit's dark silhouette
+		private static readonly Color JailedTile = new Color(0.60f, 0.24f, 0.22f, 1f);
+		private static readonly Color JailedIcon = new Color(0.38f, 0.16f, 0.15f, 1f);
+
+		// Generate destroys the old buttons, so leftover entries go null rather than stale
+		private static readonly Dictionary<string, GameObject> s_Entries = new Dictionary<string, GameObject>();
+
+		public static void Track(string key, GameObject button)
+		{
+			s_Entries[key] = button;
+			Paint(key);
+		}
+
+		public static void Paint(string key)
+		{
+			GameObject button;
+			if (!s_Entries.TryGetValue(key, out button) || button == null)
+			{
+				return;
+			}
+			bool jailed = Stash.Contains(key);
+			Image tile = button.GetComponent<Image>();
+			if (tile != null)
+			{
+				tile.color = jailed ? JailedTile : Color.white;
+			}
+			Transform icon = button.transform.Find("Icon");
+			if (icon != null)
+			{
+				icon.GetComponent<Image>().color = jailed ? JailedIcon : Color.white;
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(UICatalogJail), "Unit")]
+	internal static class Patch_CatalogUnit
+	{
+		private static void Postfix(string key, GameObject button)
+		{
+			try
+			{
+				Catalog.Track(key, button);
+			}
+			catch
+			{
+			}
+		}
+	}
+
+	// a unit stashed before this list narrowed must stay reachable, or it can never be recovered
+	[HarmonyPatch(typeof(UICatalogJail), "CanAddUnit")]
+	internal static class Patch_CanAddUnit
+	{
+		private static void Postfix(Unit unit, ref bool __result)
+		{
+			try
+			{
+				if (!__result && Stash.Contains(unit.GetEntityIdentifier()))
+				{
+					__result = true;
+				}
+			}
+			catch
+			{
+			}
+		}
+	}
+
+	// ------------------------------ the gold counter ------------------------------
+	// the throne room's own coin widget cloned into the catalog's top left corner,
+	// since the kingdom screen's counter sits behind a full screen overlay here
+	internal static class Coins
+	{
+		private const float Margin = 14f;
+		private const int WalkLimit = 4;
+
+		private static GameObject s_Widget;
+		private static Text s_Text;
+
+		public static void Show()
+		{
+			if (s_Widget != null)
+			{
+				return;
+			}
+			TitleScreenHeroSelectionManager screen = TitleScreenHeroSelectionManager.Instance;
+			if (screen == null)
+			{
+				return;
+			}
+			Traverse throne = Traverse.Create(screen);
+			Text coins = throne.Field("coins").GetValue<Text>();
+			GameObject overlay = Traverse.Create(AchievementManager.Instance)
+				.Field("achievementOverlay").GetValue<GameObject>();
+			if (coins == null || overlay == null || overlay.GetComponent<RectTransform>() == null)
+			{
+				Plugin.Log?.LogWarning("no coin widget to clone, the catalog opens without a counter");
+				return;
+			}
+
+			Transform source = WidgetRoot(throne, coins.transform);
+			if (source == coins.transform)
+			{
+				Plugin.Log?.LogWarning("the coin counter has no widget around it, cloning the number alone");
+			}
+
+			// size before the anchors move - a stretched rect reads sizeDelta as an offset, not a size
+			RectTransform sourceRect = source.GetComponent<RectTransform>();
+			Vector2 size = sourceRect != null
+				? new Vector2(sourceRect.rect.width, sourceRect.rect.height)
+				: Vector2.zero;
+
+			s_Widget = Object.Instantiate(source.gameObject, overlay.transform);
+			s_Widget.name = "UnlimitedJailCoins";
+			RectTransform rect = s_Widget.GetComponent<RectTransform>();
+			if (rect != null)
+			{
+				rect.anchorMin = new Vector2(0f, 1f);
+				rect.anchorMax = new Vector2(0f, 1f);
+				rect.pivot = new Vector2(0f, 1f);
+				rect.sizeDelta = size;
+				rect.anchoredPosition = new Vector2(Margin, 0f - Margin);
+			}
+			foreach (Graphic graphic in s_Widget.GetComponentsInChildren<Graphic>(includeInactive: true))
+			{
+				graphic.raycastTarget = false;
+			}
+			s_Text = s_Widget.GetComponentInChildren<Text>(includeInactive: true);
+			Refresh();
+		}
+
+		public static void Hide()
+		{
+			if (s_Widget != null)
+			{
+				Object.Destroy(s_Widget);
+				s_Widget = null;
+				s_Text = null;
+			}
+		}
+
+		public static void Refresh()
+		{
+			if (s_Text != null)
+			{
+				s_Text.text = TitleScreenHeroSelectionManager.Instance.GetCoinsRemaining().ToString();
+			}
+		}
+
+		// largest subtree holding the coin counter and none of its siblings, whatever the nesting.
+		// the canvas and step limits stop a missing sibling from cloning half the screen
+		private static Transform WidgetRoot(Traverse throne, Transform coins)
+		{
+			Transform[] siblings = new Transform[]
+			{
+				Counter(throne, "shards"),
+				Counter(throne, "faith"),
+				Counter(throne, "superMetal")
+			};
+			if (siblings[0] == null && siblings[1] == null && siblings[2] == null)
+			{
+				return coins;
+			}
+			Transform widget = coins;
+			for (int step = 0; step < WalkLimit; step++)
+			{
+				Transform parent = widget.parent;
+				if (parent == null || parent.GetComponent<Canvas>() != null || Holds(parent, siblings))
+				{
+					break;
+				}
+				widget = parent;
+			}
+			return widget;
+		}
+
+		private static bool Holds(Transform parent, Transform[] siblings)
+		{
+			foreach (Transform sibling in siblings)
+			{
+				if (sibling != null && sibling.IsChildOf(parent))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		private static Transform Counter(Traverse throne, string field)
+		{
+			Text text = throne.Field(field).GetValue<Text>();
+			return text != null ? text.transform : null;
+		}
+	}
+
+	[HarmonyPatch(typeof(AchievementManager), "OpenJail")]
+	internal static class Patch_OpenJail
+	{
+		private static void Postfix()
+		{
+			try
+			{
+				Coins.Show();
+			}
+			catch (System.Exception e)
+			{
+				Plugin.Log?.LogError("could not build the coin counter: " + e);
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(AchievementManager), "Close")]
+	internal static class Patch_AchievementClose
+	{
+		private static void Postfix(bool __result)
+		{
+			try
+			{
+				if (__result)
+				{
+					Coins.Hide();
+				}
+			}
+			catch
+			{
+			}
+		}
+	}
+
+	// cancel on a unit's details screen should land back on the grid, not the throne room.
+	// OpenUnitDetails calls CloseCatalog first, which zeroes m_WasOpen, so vanilla's own
+	// "back to the grid" branch in UICatalogManager.Close can never fire
+	[HarmonyPatch(typeof(TitleScreenHeroSelectionManager), "CloseJailSelection")]
+	internal static class Patch_CloseJailSelection
+	{
+		private static bool Prefix()
+		{
+			try
+			{
+				UICatalogManager catalog = UICatalogManager.Instance;
+				if (catalog == null || !catalog.IsUnitDetailsOpen())
+				{
+					return true;
+				}
+				// mirrors OpenJail, which generates without EnableCatalog - the jail screen has no prev/next
+				Traverse traverse = Traverse.Create(catalog);
+				traverse.Method("CloseUnitDetails").GetValue();
+				traverse.Method("Generate",
+					new System.Type[] { typeof(CatalogType), typeof(int) },
+					new object[] { CatalogType.Jail, 0 }).GetValue();
+				RuntimeManager.PlayOneShot("event:/SFX/UI/Cancel");
+				return false;
+			}
+			catch (System.Exception e)
+			{
+				Plugin.Log?.LogError("could not step back to the selection: " + e);
+				return true;
+			}
+		}
+	}
+
+	// vanilla assigns the cell and closes. toggle and stay put instead
+	[HarmonyPatch(typeof(TitleScreenHeroSelectionManager), "SelectJailedUnit")]
+	internal static class Patch_SelectJailedUnit
+	{
+		private static bool Prefix(string key)
+		{
+			try
+			{
+				Stash.Toggle(key);
+				Catalog.Paint(key);
+				RuntimeManager.PlayOneShot(Stash.Contains(key)
+					? "event:/SFX/UI/Confirm"
+					: "event:/SFX/UI/Cancel");
+				// clicking an already selected entry never re-fires Select, so refresh the card by hand
+				UICatalogManager.Instance.OnSelect(key, clicked: false);
+				TitleScreenHeroSelectionManager.Instance.UpdateKingdomData();
+				Coins.Refresh();
+			}
+			catch (System.Exception e)
+			{
+				// never fall through - vanilla would write the cell to the save and close the screen
+				Plugin.Log?.LogError("could not toggle " + key + ": " + e);
+			}
+			return false;
+		}
+	}
+
+	// ------------------------------ coin cost ------------------------------
 	// a coin per jailed unit, charged where vanilla charges the starting relic and unit:
-	// the kingdom counter and its catalogs through GetCoinsRemaining, then the run purse
+	// the kingdom counter and its catalogs, then the run purse
 	[HarmonyPatch(typeof(TitleScreenHeroSelectionManager), "GetCoinsRemaining")]
 	internal static class Patch_CoinsRemaining
 	{
@@ -290,8 +573,7 @@ namespace UnlimitedJail
 			}
 		}
 
-		// vanilla hands you three cells, so the first three stay free.
-		// shared, so the counter on screen and the charge on the purse cannot drift
+		// vanilla hands you three cells free. shared, so the counter and the charge cannot drift
 		public static int CoinCost
 		{
 			get { return Mathf.Max(0, Units.Count - 3); }
@@ -372,344 +654,6 @@ namespace UnlimitedJail
 		private static string PathFor(string key)
 		{
 			return Path.Combine(Path.Combine(Paths.ConfigPath, "UnlimitedJail"), key + ".txt");
-		}
-	}
-
-	// ------------------------------ title screen overlay ------------------------------
-	// rebuilt on every open, so switching kingdom or profile can never leave it stale
-	internal class StashPanel : MonoBehaviour
-	{
-		private const float TileSize = 52f;
-		private const float TileGap = 6f;
-		private const float LabelHeight = 15f;
-		private const float Margin = 22f;
-		private const float TopBar = 28f;
-		private const float StashedFade = 0.3f;
-		private const string OutlinedFont = "Passage7Outline";
-		private const int SortingOrder = 30000;
-		private const float PanelScale = 1.5f;
-
-		// colour-picked off the game's own screenshots: 060608 ui dark, 322b28 wood, c8ae8c parchment
-		private static readonly Color BackdropColor = new Color(0f, 0f, 0f, 0.75f);
-		private static readonly Color PanelColor = new Color(0.024f, 0.024f, 0.031f, 0.98f);
-		private static readonly Color TileColor = new Color(0.196f, 0.169f, 0.157f, 1f);
-		private static readonly Color TileStashedColor = new Color(0.094f, 0.078f, 0.075f, 1f);
-		private static readonly Color LabelColor = new Color(0.784f, 0.682f, 0.549f, 1f);
-
-		private sealed class Tile
-		{
-			public string id;
-			public Image background;
-			public Image icon;
-			public TextMeshProUGUI label;
-		}
-
-		private readonly List<Tile> m_Tiles = new List<Tile>();
-		private GameObject m_Root;
-		private TMP_FontAsset m_Font;
-
-		internal void OpenFromJail()
-		{
-			// ClickJail fires OpenJailSelection twice for an "empty" cell, and every cell is empty now
-			if (m_Root != null)
-			{
-				return;
-			}
-			Selectables(enable: false);
-			Open();
-		}
-
-		private void OnDestroy()
-		{
-			if (m_Root != null)
-			{
-				Close();
-			}
-		}
-
-		private void Open()
-		{
-			try
-			{
-				Build();
-			}
-			catch (System.Exception e)
-			{
-				// never silent - a bare catch here once hid a one line bug behind "the panel never opens"
-				Plugin.Log?.LogError("stash panel failed to build: " + e);
-				Close();
-			}
-		}
-
-		private void Build()
-		{
-			List<string> pool = new List<string> { "Cyclops", "Archer", "Runescribe" };
-			Merge(pool, PermanentDataManager.Instance.GetUnlockedUnits());
-			Merge(pool, RaceDataManager.Instance.GetUnlockedUnits());
-			pool.Sort();
-
-			// unobtainable units are dropped
-			List<string> ids = new List<string>();
-			List<Unit> units = new List<Unit>();
-			foreach (string id in pool)
-			{
-				Unit unit = AddressablesManager.Instance.GetUnit(id);
-				if (unit != null)
-				{
-					ids.Add(id);
-					units.Add(unit);
-				}
-			}
-			if (ids.Count == 0)
-			{
-				return;
-			}
-
-			m_Font = FindFont();
-
-			// as square as it goes - 2x1, 2x2, 3x2, 3x3, 4x3, 4x4, 5x4 - plus a column, tiles are taller than wide
-			float tileHeight = TileSize + LabelHeight;
-			int columns = 1;
-			int rows = 1;
-			while (columns * rows < ids.Count)
-			{
-				if (columns > rows)
-				{
-					rows++;
-				}
-				else
-				{
-					columns++;
-				}
-			}
-			columns++;
-			rows = Mathf.CeilToInt((float)ids.Count / columns);
-			float gridWidth = columns * TileSize + (columns - 1) * TileGap;
-			float gridHeight = rows * tileHeight + (rows - 1) * TileGap;
-
-			// nested, not a root canvas - a root one does not inherit the ui scaling
-			Canvas host = BusiestOverlayCanvas();
-			m_Root = new GameObject("UnlimitedJail", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
-			RectTransform rootRect = m_Root.GetComponent<RectTransform>();
-			rootRect.SetParent(host.transform, false);
-			rootRect.anchorMin = Vector2.zero;
-			rootRect.anchorMax = Vector2.one;
-			rootRect.offsetMin = Vector2.zero;
-			rootRect.offsetMax = Vector2.zero;
-			Canvas own = m_Root.GetComponent<Canvas>();
-			own.overrideSorting = true;
-			own.sortingOrder = SortingOrder;
-
-			RectTransform root = NewRect("Backdrop", m_Root.transform);
-			root.anchorMin = Vector2.zero;
-			root.anchorMax = Vector2.one;
-			root.offsetMin = Vector2.zero;
-			root.offsetMax = Vector2.zero;
-			root.gameObject.AddComponent<Image>().color = BackdropColor;
-			root.gameObject.AddComponent<Button>().onClick.AddListener(Close);
-
-			RectTransform panel = NewRect("Panel", root);
-			panel.anchorMin = new Vector2(0.5f, 0.5f);
-			panel.anchorMax = new Vector2(0.5f, 0.5f);
-			panel.pivot = new Vector2(0.5f, 0.5f);
-			panel.sizeDelta = new Vector2(gridWidth + 2f * Margin, gridHeight + TopBar + 2f * Margin);
-			panel.anchoredPosition = Vector2.zero;
-			panel.localScale = Vector3.one * PanelScale;
-			panel.gameObject.AddComponent<Image>().color = PanelColor;
-
-			RectTransform close = NewRect("Close", panel);
-			close.anchorMin = new Vector2(1f, 1f);
-			close.anchorMax = new Vector2(1f, 1f);
-			close.pivot = new Vector2(1f, 1f);
-			close.sizeDelta = new Vector2(22f, 22f);
-			close.anchoredPosition = new Vector2(-5f, -5f);
-			close.gameObject.AddComponent<Image>().color = TileColor;
-			close.gameObject.AddComponent<Button>().onClick.AddListener(Close);
-
-			// unity allows one Graphic per object, so the X sits on a child of the button
-			RectTransform closeLabel = NewRect("Label", close);
-			closeLabel.anchorMin = Vector2.zero;
-			closeLabel.anchorMax = Vector2.one;
-			closeLabel.offsetMin = Vector2.zero;
-			closeLabel.offsetMax = Vector2.zero;
-			AddText(closeLabel, TextAlignmentOptions.Center, 18f).text = "X";
-
-			for (int i = 0; i < ids.Count; i++)
-			{
-				int column = i % columns;
-				int row = i / columns;
-
-				RectTransform tileRect = NewRect(ids[i], panel);
-				tileRect.anchorMin = new Vector2(0f, 1f);
-				tileRect.anchorMax = new Vector2(0f, 1f);
-				tileRect.pivot = new Vector2(0f, 1f);
-				tileRect.sizeDelta = new Vector2(TileSize, tileHeight);
-				tileRect.anchoredPosition = new Vector2(
-					Margin + column * (TileSize + TileGap),
-					-(Margin + TopBar + row * (tileHeight + TileGap)));
-
-				Tile tile = new Tile { id = ids[i] };
-				tile.background = tileRect.gameObject.AddComponent<Image>();
-
-				RectTransform iconRect = NewRect("Icon", tileRect);
-				iconRect.anchorMin = new Vector2(0f, 1f);
-				iconRect.anchorMax = new Vector2(1f, 1f);
-				iconRect.pivot = new Vector2(0.5f, 1f);
-				iconRect.offsetMin = new Vector2(3f, 0f);
-				iconRect.offsetMax = new Vector2(-3f, 0f);
-				iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.x, TileSize - 4f);
-				iconRect.anchoredPosition = new Vector2(0f, -2f);
-				tile.icon = iconRect.gameObject.AddComponent<Image>();
-				tile.icon.sprite = units[i].GetIcon();
-				tile.icon.preserveAspect = true;
-				tile.icon.raycastTarget = false;
-
-				RectTransform labelRect = NewRect("Label", tileRect);
-				labelRect.anchorMin = new Vector2(0f, 0f);
-				labelRect.anchorMax = new Vector2(1f, 0f);
-				labelRect.pivot = new Vector2(0.5f, 0f);
-				labelRect.offsetMin = new Vector2(1f, 0f);
-				labelRect.offsetMax = new Vector2(-1f, 0f);
-				labelRect.sizeDelta = new Vector2(labelRect.sizeDelta.x, LabelHeight);
-				labelRect.anchoredPosition = Vector2.zero;
-				tile.label = AddText(labelRect, TextAlignmentOptions.Center, 11f);
-				tile.label.text = units[i].GetName();
-
-				string id = ids[i];
-				tileRect.gameObject.AddComponent<Button>().onClick.AddListener(delegate
-				{
-					Stash.Toggle(id);
-					Paint();
-				});
-
-				m_Tiles.Add(tile);
-			}
-
-			Paint();
-		}
-
-		private void Close()
-		{
-			m_Tiles.Clear();
-			if (m_Root != null)
-			{
-				Object.Destroy(m_Root);
-				m_Root = null;
-			}
-			Selectables(enable: true);
-			try
-			{
-				TitleScreenJail jail = Object.FindObjectOfType<TitleScreenJail>();
-				if (jail != null)
-				{
-					jail.Decorate();
-				}
-			}
-			catch
-			{
-			}
-		}
-
-		// null check is for OnDestroy: Instance is never cleared, so the static outlives the object
-		private static void Selectables(bool enable)
-		{
-			TitleScreenHeroSelectionManager screen = TitleScreenHeroSelectionManager.Instance;
-			if (screen != null)
-			{
-				screen.SetSelectablesEnabled(enable);
-			}
-		}
-
-		private void Paint()
-		{
-			foreach (Tile tile in m_Tiles)
-			{
-				bool stashed = Stash.Contains(tile.id);
-				float alpha = stashed ? StashedFade : 1f;
-				tile.background.color = stashed ? TileStashedColor : TileColor;
-				tile.icon.color = new Color(1f, 1f, 1f, alpha);
-				tile.label.color = new Color(1f, 1f, 1f, alpha);
-			}
-
-			// update coin counter immediately
-			TitleScreenHeroSelectionManager screen = TitleScreenHeroSelectionManager.Instance;
-			if (screen != null)
-			{
-				screen.UpdateKingdomData();
-			}
-		}
-
-		private static RectTransform NewRect(string name, Transform parent)
-		{
-			GameObject go = new GameObject(name, typeof(RectTransform));
-			RectTransform rect = go.GetComponent<RectTransform>();
-			rect.SetParent(parent, false);
-			return rect;
-		}
-
-		private TextMeshProUGUI AddText(RectTransform parent, TextAlignmentOptions alignment, float size)
-		{
-			TextMeshProUGUI text = parent.gameObject.AddComponent<TextMeshProUGUI>();
-			if (m_Font != null)
-			{
-				text.font = m_Font;
-				text.fontSharedMaterial = m_Font.material;
-			}
-			text.fontSize = size;
-			text.alignment = alignment;
-			text.enableWordWrapping = false;
-			text.overflowMode = TextOverflowModes.Ellipsis;
-			text.color = LabelColor;
-			text.raycastTarget = false;
-			return text;
-		}
-
-		// the outline is baked into the atlas, the bitmap shader has no outline properties at all
-		internal static TMP_FontAsset FindFont()
-		{
-			TMP_FontAsset[] fonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-			foreach (TMP_FontAsset font in fonts)
-			{
-				if (font.name == OutlinedFont)
-				{
-					return font;
-				}
-			}
-			return fonts.Length > 0 ? fonts[0] : null;
-		}
-
-		private static Canvas BusiestOverlayCanvas()
-		{
-			Canvas best = null;
-			int bestChildren = -1;
-			foreach (Canvas canvas in Object.FindObjectsOfType<Canvas>())
-			{
-				if (canvas.renderMode != RenderMode.ScreenSpaceOverlay || !canvas.isRootCanvas)
-				{
-					continue;
-				}
-				if (canvas.transform.childCount > bestChildren)
-				{
-					best = canvas;
-					bestChildren = canvas.transform.childCount;
-				}
-			}
-			return best;
-		}
-
-		private static void Merge(List<string> pool, List<string> extra)
-		{
-			if (extra == null)
-			{
-				return;
-			}
-			foreach (string id in extra)
-			{
-				if (!pool.Contains(id))
-				{
-					pool.Add(id);
-				}
-			}
 		}
 	}
 }
