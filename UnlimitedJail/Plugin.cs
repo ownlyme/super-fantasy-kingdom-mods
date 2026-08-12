@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace UnlimitedJail
 {
-	[BepInPlugin("ownly.unlimitedjail", "Unlimited Jail", "1.1.0")]
+	[BepInPlugin("ownly.unlimitedjail", "Unlimited Jail", "1.2.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		internal static ManualLogSource Log;
@@ -76,6 +76,26 @@ namespace UnlimitedJail
 			try
 			{
 				Filter.Apply(__instance);
+			}
+			catch
+			{
+			}
+		}
+	}
+
+	// since we remove units from m_UnlockedUnits we need to add back the "trapped" icon to the monster card
+	[HarmonyPatch(typeof(UICardBoss), "Init")]
+	internal static class Patch_MonsterCardTrap
+	{
+		private static void Postfix(UICardBoss __instance, MonsterBase boss)
+		{
+			try
+			{
+				if (Stash.Contains(boss.GetEntityIdentifier()))
+				{
+					Traverse.Create(__instance).Field("trap").GetValue<Image>()
+						.gameObject.SetActive(value: true);
+				}
 			}
 			catch
 			{
@@ -573,10 +593,10 @@ namespace UnlimitedJail
 			}
 		}
 
-		// vanilla hands you three cells free. shared, so the counter and the charge cannot drift
+		// shared formula for jailing cost
 		public static int CoinCost
 		{
-			get { return Mathf.Max(0, Units.Count - 3); }
+			get { return Mathf.Max(0, Units.Count - 2) / 2; }
 		}
 
 		public static bool Contains(string entityIdentifier)
