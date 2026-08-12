@@ -35,7 +35,7 @@ Skip anything with right click, including the "New Day" message and the game's s
 
 **[Unlimited Jail](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/UnlimitedJail.dll)**  
 Jail any amount of units, not just 3  
-The first 3 are free, then it costs 1 coin each
+The first 3 are free, then it costs 1 coin every 2 units
 
 ## Install
 

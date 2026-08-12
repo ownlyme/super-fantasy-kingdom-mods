@@ -4,7 +4,7 @@
 
 Jail any amount of units, not just 3
 
-The first 3 are free, then it costs 1 coin each
+The first 3 are free, then it costs 1 coin every 2 units
 
 # 🔧 Installation
 ## Manual Installation
