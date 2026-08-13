@@ -1,6 +1,6 @@
 {
   "name": "AchievementEnabler",
-  "version_number": "1.0.0",
+  "version_number": "1.1.0",
   "website_url": "https://github.com/ownlyme/super-fantasy-kingdom-mods",
   "description": "Re-enables achievements while BepInEx is installed, including the unlocks from challenges on the map.",
   "dependencies": [

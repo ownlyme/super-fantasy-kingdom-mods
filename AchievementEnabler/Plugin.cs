@@ -4,7 +4,7 @@ using SuperFantasyKingdom;
 
 namespace AchievementEnabler
 {
-	[BepInPlugin("ownly.achievementenabler", "Achievement Enabler", "1.0.0")]
+	[BepInPlugin("ownly.achievementenabler", "Achievement Enabler", "1.1.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		private void Awake()
@@ -18,9 +18,17 @@ namespace AchievementEnabler
 	[HarmonyPatch(typeof(AchievementManager), "CheckAchievements")]
 	internal static class Patch_EnableAchievements
 	{
-		private static void Prefix(AchievementManager __instance)
+		private static void Prefix(AchievementManager __instance, out bool __state)
 		{
-			Traverse.Create(__instance).Field("m_IsModded").SetValue(false);
+			Traverse flag = Traverse.Create(__instance).Field("m_IsModded");
+			__state = flag.GetValue<bool>();
+			flag.SetValue(false);
+		}
+
+		// restored even on a throw, in case a later build reads the flag elsewhere
+		private static void Finalizer(AchievementManager __instance, bool __state)
+		{
+			Traverse.Create(__instance).Field("m_IsModded").SetValue(__state);
 		}
 	}
 }
