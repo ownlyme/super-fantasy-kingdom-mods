@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net48</TargetFramework>
+		<AssemblyName>MoreRelics</AssemblyName>
+		<Product>More Relics</Product>
+		<Version>1.0.0</Version>
+		<LangVersion>latest</LangVersion>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+		<DebugType>none</DebugType>
+
+		<!-- game + loader paths, edit to your install (see readme) -->
+		<BepInExCore>..\..\core</BepInExCore>
+		<GameManaged>..\..\..\Super Fantasy Kingdom_Data\Managed</GameManaged>
+	</PropertyGroup>
+
+	<!-- net48 reference assemblies without visual studio -->
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+	</ItemGroup>
+
+	<!-- relic icons, baked into the dll so the mod still ships as a bare file -->
+	<ItemGroup>
+		<EmbeddedResource Include="Icons\*.png" />
+	</ItemGroup>
+
+	<!-- bepinex + harmony -->
+	<ItemGroup>
+		<Reference Include="BepInEx">
+			<HintPath>$(BepInExCore)\BepInEx.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="0Harmony">
+			<HintPath>$(BepInExCore)\0Harmony.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
+
+	<!-- game assemblies -->
+	<ItemGroup>
+		<Reference Include="Assembly-CSharp">
+			<HintPath>$(GameManaged)\Assembly-CSharp.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="UnityEngine">
+			<HintPath>$(GameManaged)\UnityEngine.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="UnityEngine.CoreModule">
+			<HintPath>$(GameManaged)\UnityEngine.CoreModule.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="UnityEngine.ImageConversionModule">
+			<HintPath>$(GameManaged)\UnityEngine.ImageConversionModule.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="UnityEngine.UI">
+			<HintPath>$(GameManaged)\UnityEngine.UI.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="UnityEngine.UIModule">
+			<HintPath>$(GameManaged)\UnityEngine.UIModule.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<!-- grimoire reads GameClick's CallbackContext, the game has no KeyCode anywhere -->
+		<Reference Include="Unity.InputSystem">
+			<HintPath>$(GameManaged)\Unity.InputSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+	</ItemGroup>
+
+</Project>

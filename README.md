@@ -40,6 +40,15 @@ The first 3 are free, then it costs 1 coin every 2 units
 **[Music Fader](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/MusicFader.dll)**  
 Fades the music between town and battlefield over 5 seconds.
 
+**[More Relics](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/MoreRelics.dll)**  
+Six new powerful relics  
+Cornucopia - 1-2 random gathered resources appear every morning  
+Sous Chef - the tavern cook prepares one more meat per night  
+Millstone - the bakery grinds its own wheat, so bread no longer needs flour  
+Master Key - relics ignore their kingdom level, building and unit requirements  
+Grimoire - a new spell no longer replaces the old one, click the second slot to switch  
+Phalanx - only the first unit of each column can be hurt
+
 ## Install
 
 1. Install BepInEx 5 (Mono) into your Super Fantasy Kingdom folder
