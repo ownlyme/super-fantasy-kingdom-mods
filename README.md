@@ -37,6 +37,9 @@ Skip anything with right click, including the "New Day" message and the game's s
 Jail any amount of units, not just 3  
 The first 3 are free, then it costs 1 coin every 2 units
 
+**[Music Fader](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/MusicFader.dll)**  
+Fades the music between town and battlefield over 5 seconds.
+
 ## Install
 
 1. Install BepInEx 5 (Mono) into your Super Fantasy Kingdom folder
