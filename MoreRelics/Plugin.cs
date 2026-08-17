@@ -25,7 +25,6 @@ namespace MoreRelics
 			}
 			catch (System.Exception e)
 			{
-				// one bad target stops the iteration and every class after it never applies
 				Log.LogError("PatchAll THREW, later patches did not apply: " + e);
 			}
 		}
@@ -57,7 +56,7 @@ namespace MoreRelics
 		}
 	}
 
-	// ids are prefixed - the addressables dictionary and the run save are both keyed by name
+	// the addressables dictionary and the run save are both keyed by name
 	internal sealed class RelicDef
 	{
 		public string id;
@@ -66,7 +65,6 @@ namespace MoreRelics
 		public int cost;
 		public string title;
 		public string description;
-		// no relic sets one today, and registration still writes it to clear the donor's own
 		public int requiredKingdomLevel = 0;
 		public bool bossOnly;
 	}
@@ -96,7 +94,7 @@ namespace MoreRelics
 	}
 
 	// ------------------------------ registration ------------------------------
-	// every relic consumer reads these two live collections, and it has to happen before a save loads
+	// IsLoaded runs before any save loads
 	[HarmonyPatch(typeof(AddressablesManager), "IsLoaded")]
 	internal static class Patch_Register
 	{
@@ -150,7 +148,7 @@ namespace MoreRelics
 				traverse.Field("identifier").SetValue(def.id);
 				traverse.Field("rarity").SetValue(def.rarity);
 				traverse.Field("cost").SetValue(def.cost);
-				// no vanilla relic sets generic, and UICardRelic's branch for it never paints relicBG
+				// UICardRelic's generic branch never paints relicBG, and no vanilla relic sets it
 				traverse.Field("generic").SetValue(false);
 				traverse.Field("racial").SetValue(false);
 				traverse.Field("unlockedByDefault").SetValue(true);
@@ -164,6 +162,7 @@ namespace MoreRelics
 				traverse.Field("soldAtCartographer3").SetValue(!def.bossOnly);
 				traverse.Field("soldAtCartographer4").SetValue(!def.bossOnly);
 
+				// clear the donor's own gates
 				traverse.Field("requiredBuilding").SetValue(BuildingType.None);
 				traverse.Field("relatedUnit").SetValue("");
 				traverse.Field("kingdom").SetValue(Races.None);
@@ -175,7 +174,6 @@ namespace MoreRelics
 				traverse.Field("cooldown").SetValue(1E+09f);
 
 				// Icons\<RelicClass>.png embedded in the dll, HideAndDontSave survives the scene load
-				// ppu comes off the donor, the world drop and drag ghost size themselves by it
 				Sprite donorIcon = donor.GetIcon();
 				Stream stream = typeof(Plugin).Assembly.GetManifestResourceStream("MoreRelics.Icons." + entry.GetType().Name + ".png");
 				if (stream != null)
@@ -192,7 +190,6 @@ namespace MoreRelics
 						Sprite icon = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), perUnit);
 						icon.hideFlags = HideFlags.HideAndDontSave;
 						traverse.Field("icon").SetValue(icon);
-						// vanilla bakes the sprite into the prefab's own Image, which the hud column draws
 						Image image = clone.GetComponent<Image>();
 						if (image != null)
 						{
@@ -210,12 +207,11 @@ namespace MoreRelics
 				{
 					identifiers.Add(def.id);
 				}
-				Plugin.Log?.LogInfo("registered " + def.id + " cloned from " + donor.name + ", donor icon "
-					+ ((donorIcon != null) ? (donorIcon.rect.width + "x" + donorIcon.rect.height + " @ " + donorIcon.pixelsPerUnit + " ppu") : "none"));
+				Plugin.Log?.LogInfo("registered " + def.id + " cloned from " + donor.name);
 			}
 		}
 
-		// first donor that exists, a renamed prefab degrades instead of failing
+		// first donor that exists
 		private static Relic Donor(Dictionary<string, Relic> relics, RelicDef def)
 		{
 			foreach (string name in def.cloneFrom)
@@ -236,7 +232,7 @@ namespace MoreRelics
 		}
 	}
 
-	// Instantiate copies activeSelf and the prototype is parked inactive, so the hud column skips it
+	// instances are inactive (from the prototype), this makes sure the relic shows on the hud
 	[HarmonyPatch(typeof(RelicManager), "SpawnRelic", new System.Type[] { typeof(Relic) })]
 	internal static class Patch_SpawnActive
 	{
@@ -249,18 +245,16 @@ namespace MoreRelics
 		}
 	}
 
-	// UnlockRelic would write our ids into the permanent save and leave them after an uninstall
 	[HarmonyPatch(typeof(RelicManager), "IsUnlocked")]
 	internal static class Patch_IsUnlocked
 	{
 		private static void Postfix(string relic, ref bool __result)
 		{
-			// OR, never assign, another relic mod has to compose with us
+			// OR (compatibility with other relic mods)
 			__result = __result || Registry.Find(relic) != null;
 		}
 	}
 
-	// a starting relic that no longer exists NREs the run, AddRelic returns null and nothing checks
 	[HarmonyPatch(typeof(RaceDataManager), "GetStartingRelic")]
 	internal static class Patch_StartingRelic
 	{
@@ -277,7 +271,8 @@ namespace MoreRelics
 
 	// ------------------------------ boss only ------------------------------
 	// the boss pool wants relic.kingdom == currentRace, the armory and the world map want None
-	// a GetKingdom postfix did NOT reach it, and registration cannot write it - no race yet
+	// the race is unknown at registration
+	// a GetKingdom postfix does not reach the pool
 	internal static class BossOnly
 	{
 		public static void Stamp()
@@ -302,7 +297,6 @@ namespace MoreRelics
 		}
 	}
 
-	// the subclasses override PreparePool with no base call, so this is the boss chest alone
 	[HarmonyPatch(typeof(DropBossChest), "PreparePool")]
 	internal static class Patch_BossPoolStamp
 	{
@@ -319,7 +313,6 @@ namespace MoreRelics
 		}
 	}
 
-	// LocalizedString cannot be authored at runtime, so our ids carry plain english
 	[HarmonyPatch(typeof(Item), "GetTitle")]
 	internal static class Patch_Title
 	{
@@ -354,9 +347,7 @@ namespace MoreRelics
 
 		private static void Postfix()
 		{
-			// RelicManager is per GameScene, so the day guard resets between runs
 			s_LastDay = -1;
-			// the armory reads the kingdom field long before any boss chest opens
 			try
 			{
 				BossOnly.Stamp();
@@ -365,14 +356,13 @@ namespace MoreRelics
 			{
 				Plugin.Log?.LogError("boss only stamp failed: " + e);
 			}
-			// the wave the morning taxes drop in, OnMorningStart waits out the day caption first
+			// BeforeMorningStart = second round of taxes
 			DaytimeManager.BeforeMorningStart -= Morning;
 			DaytimeManager.BeforeMorningStart += Morning;
 			RelicManager.OnRelicFound -= Found;
 			RelicManager.OnRelicFound += Found;
 		}
 
-		// AddRelic only, a save restore is covered by OnMorning
 		private static void Found(Relic relic)
 		{
 			RelicEntry entry = ((relic != null) ? Registry.Find(relic.GetIdentifier()) : null);
@@ -390,7 +380,6 @@ namespace MoreRelics
 			}
 		}
 
-		// it also fires on load, hence the day guard
 		private static void Morning(int day)
 		{
 			if (day == s_LastDay)

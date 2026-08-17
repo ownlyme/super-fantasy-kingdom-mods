@@ -3,27 +3,59 @@ using HarmonyLib;
 using SuperFantasyKingdom;
 using SuperFantasyKingdom.Buildings;
 using SuperFantasyKingdom.Clickable;
+using SuperFantasyKingdom.Spawner;
 
 namespace MoreRelics
 {
-	// ------------------------------ master key ------------------------------
+	// master key: remove relic requirements and grant 2 faith per day
 	internal sealed class MasterKey : RelicEntry
 	{
 		private const string Id = "ownly_MasterKey";
+
+		private const int FaithPerMorning = 2;
 
 		private static readonly RelicDef Definition = new RelicDef
 		{
 			id = Id,
 			cloneFrom = new[] { "GreenHouse", "BetterBerries", "Fruitarian", "SpawnTrees" },
-			rarity = Rarity.Epic,
-			cost = 8,
+			rarity = Rarity.Rare,
+			cost = 6,
 			title = "Master Key",
-			description = "Relics ignore their kingdom level, building and unit requirements."
+			description = "Relics ignore all their requirements.\n" + FaithPerMorning + "<sprite name=ResourceFaith> every morning."
 		};
 
 		public override RelicDef Def
 		{
 			get { return Definition; }
+		}
+
+		public override void OnMorning(int day)
+		{
+			// add to the tax summary
+			if (TaxManager.Instance != null)
+			{
+				TaxManager.Instance.AddToStatistics(ResourceType.Faith, FaithPerMorning);
+			}
+
+			// spawn position
+			BuildingCity source = null;
+			if (CityManager.Instance != null)
+			{
+				source = CityManager.Instance.GetChurch();
+				if (source == null)
+				{
+					source = CityManager.Instance.GetCastle();
+				}
+			}
+			if (source == null || DroppedShardSpawner.Instance == null)
+			{
+				ResourceManager.Instance.AddResource(ResourceType.Faith, FaithPerMorning);
+				return;
+			}
+			for (int i = 0; i < FaithPerMorning; i++)
+			{
+				DroppedShardSpawner.Instance.Spawn(source.GetPosition(), 1, ResourceType.Faith);
+			}
 		}
 
 		internal static bool Active()
@@ -33,7 +65,7 @@ namespace MoreRelics
 		}
 	}
 
-	// a missing building is safe - the effects null-check and vanilla re-triggers on grid change
+	// effects null-check and vanilla re-triggers on grid change
 	[HarmonyPatch(typeof(Relic), "GetRequiredBuilding")]
 	internal static class Patch_RelicBuilding
 	{
@@ -90,7 +122,6 @@ namespace MoreRelics
 		}
 	}
 
-	// nothing is held on the title screen, so its "requires level X" text stays honest
 	[HarmonyPatch(typeof(Relic), "GetRequiredKingdomLevel")]
 	internal static class Patch_RelicLevel
 	{

@@ -4,15 +4,14 @@ using SuperFantasyKingdom.Spawner;
 
 namespace MoreRelics
 {
-	// ------------------------------ cornucopia ------------------------------
+	// cornucopia: 1-2 raw resources per day
 	internal sealed class Cornucopia : RelicEntry
 	{
 		private const int MinPerDay = 1;
 		private const int MaxPerDay = 2;
-		// keeps our stream clear of vanilla's, which salt the same seed with 1337, 334, 43215
-		private const int SeedSalt = 6317;
 
-		// gathered goods only
+		private const int SeedSalt = 4123;
+
 		private static readonly ResourceType[] Gathered =
 		{
 			ResourceType.Wood,
@@ -28,10 +27,10 @@ namespace MoreRelics
 		{
 			id = "ownly_Cornucopia",
 			cloneFrom = new[] { "GreenHouse", "BetterBerries", "Fruitarian", "SpawnTrees" },
-			rarity = Rarity.Rare,
-			cost = 6,
+			rarity = Rarity.Epic,
+			cost = 8,
 			title = "Cornucopia",
-			description = "Every morning, 1-2 random resources appear."
+			description = "1-2 random resources every morning."
 		};
 
 		public override RelicDef Def
@@ -41,7 +40,7 @@ namespace MoreRelics
 
 		public override void OnMorning(int day)
 		{
-			// restarting the day replays the morning, so the roll hangs off the run seed and the day
+			// same roll every day
 			int seed = ((GameManager.Instance != null) ? GameManager.Instance.GetSeed() : 0);
 			System.Random roll = new System.Random(seed * 7 + SeedSalt + day);
 			BuildingCastle castle = ((CityManager.Instance != null) ? CityManager.Instance.GetCastle() : null);

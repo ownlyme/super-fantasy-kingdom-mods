@@ -12,8 +12,7 @@ using UnityEngine.UI;
 
 namespace MoreRelics
 {
-	// ------------------------------ grimoire ------------------------------
-	// vanilla holds one city and one combat spell and every path replaces rather than adds
+	// grimoire: a second slot for combat and city spells
 	internal sealed class Grimoire : RelicEntry
 	{
 		private static readonly RelicDef Definition = new RelicDef
@@ -36,7 +35,6 @@ namespace MoreRelics
 			Preview.Refresh();
 		}
 
-		// covers a save restore, the morning fires on every load
 		public override void OnMorning(int day)
 		{
 			Preview.Refresh();
@@ -48,7 +46,6 @@ namespace MoreRelics
 			return entry != null && entry.Held();
 		}
 
-		// the cast path is keyed on SpellType, not on the slot field
 		internal static void Swap()
 		{
 			SpellManager spells = SpellManager.Instance;
@@ -65,10 +62,9 @@ namespace MoreRelics
 				return;
 			}
 
-			// a spell mid-selection would keep targeting with the type we just moved out
 			spells.Cancel(manual: false);
 			Reserve.Set(combat, active.GetSpellType());
-			// the SpellType overload, so the keep prefix on the SpellBase one cannot re-enter
+
 			if (combat)
 			{
 				spells.SetCombatSpell(reserve);
@@ -78,7 +74,7 @@ namespace MoreRelics
 				spells.SetCitySpell(reserve);
 			}
 
-			// an event cannot be raised from outside the class that declares it
+			// event cannot be raised from outside its class
 			Action<bool> onSwitch = Traverse.Create(typeof(SpellManager)).Field("OnSwitch").GetValue<Action<bool>>();
 			onSwitch?.Invoke(combat);
 			Preview.Refresh();
@@ -86,38 +82,13 @@ namespace MoreRelics
 	}
 
 	// ------------------------------ the second slot ------------------------------
-	// vanilla's spell icon is the only way to cast without a keyboard, so it keeps its click
 	internal static class Preview
 	{
-		// of the spell icon, nudge these against a screenshot
 		private const float Scale = 0.62f;
 		private const float OffsetX = 0f;
 		// negative is down
 		private const float OffsetY = -0.85f;
-		// a stretched rect reads sizeDelta as an offset, so fall back to this
-		private const float FallbackSize = 64f;
 		private static readonly Color Dimmed = new Color(1f, 1f, 1f, 0.8f);
-
-		// 16x16, drawn here so the mod still ships as a bare dll
-		private static readonly string[] UnknownArt =
-		{
-			"................",
-			"................",
-			".....######.....",
-			"....########....",
-			"...###....###...",
-			"...###....###...",
-			"..........###...",
-			".........###....",
-			"........###.....",
-			".......###......",
-			".......###......",
-			".......###......",
-			"................",
-			".......###......",
-			".......###......",
-			"................"
-		};
 
 		private static Image s_Image;
 		private static Sprite s_Unknown;
@@ -132,12 +103,7 @@ namespace MoreRelics
 			GameObject slot = new GameObject("GrimoireReserve", typeof(RectTransform));
 			slot.transform.SetParent(source.parent, worldPositionStays: false);
 
-			// sizeDelta not rect, layout has not run yet inside Awake
 			Vector2 size = source.sizeDelta;
-			if (size.x <= 1f || size.y <= 1f)
-			{
-				size = new Vector2(FallbackSize, FallbackSize);
-			}
 			RectTransform rect = slot.GetComponent<RectTransform>();
 			rect.anchorMin = source.anchorMin;
 			rect.anchorMax = source.anchorMax;
@@ -160,7 +126,6 @@ namespace MoreRelics
 
 		internal static void Refresh()
 		{
-			// a destroyed unity object compares null, so the daily scene reload heals itself
 			if (s_Image == null)
 			{
 				return;
@@ -196,42 +161,46 @@ namespace MoreRelics
 			trigger.triggers.Add(entry);
 		}
 
+		// 16x16
 		private static Sprite Unknown()
 		{
 			if (s_Unknown != null)
 			{
 				return s_Unknown;
 			}
-			int size = UnknownArt.Length;
-			Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, mipChain: false);
+			Stream stream = typeof(Plugin).Assembly.GetManifestResourceStream("MoreRelics.Icons.SlotUnknown.png");
+			if (stream == null)
+			{
+				return null;
+			}
+			byte[] png = new byte[stream.Length];
+			stream.Read(png, 0, png.Length);
+			stream.Dispose();
+			Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false);
+			if (!texture.LoadImage(png))
+			{
+				Plugin.Log?.LogError("could not decode SlotUnknown.png");
+				return null;
+			}
 			texture.filterMode = FilterMode.Point;
 			texture.hideFlags = HideFlags.HideAndDontSave;
-			for (int row = 0; row < size; row++)
-			{
-				for (int column = 0; column < size; column++)
-				{
-					// texture rows run bottom up
-					texture.SetPixel(column, size - 1 - row,
-						(UnknownArt[row][column] == '#') ? Color.white : Color.clear);
-				}
-			}
-			texture.Apply();
-			s_Unknown = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+			s_Unknown = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
+				new Vector2(0.5f, 0.5f), texture.width);
 			s_Unknown.hideFlags = HideFlags.HideAndDontSave;
 			return s_Unknown;
 		}
 	}
 
-	// gameData carries one spellCity and one spellCombat, and the GameScene reloads daily
+	// one spellCity and one spellCombat, GameScene reloads daily
 	internal static class Reserve
 	{
 		private static SpellType s_City;
 		private static SpellType s_Combat;
 		private static string s_Key;
-		// the run the two above belong to, so a new run cannot inherit them
+		// the run the two above belong to
 		private static int s_Seed;
 
-		// stable for a run and restored with the save, so Reset Day keeps its reserve
+		// stable restored with the save
 		private static int CurrentSeed()
 		{
 			return ((GameManager.Instance != null) ? GameManager.Instance.GetSeed() : 0);
@@ -278,7 +247,7 @@ namespace MoreRelics
 			return System.IO.Path.Combine(Paths.ConfigPath, "MoreRelics", s_Key + ".txt");
 		}
 
-		// switching kingdom or profile re-reads, and so does starting another run
+		// switching kingdom/profile or starting a run re-reads
 		private static void Load()
 		{
 			string key = Key();
@@ -326,7 +295,7 @@ namespace MoreRelics
 						s_Combat = spell;
 					}
 				}
-				// another run banked these, they are not ours to hand out
+				// another run banked these
 				if (seed != 0 && stored != seed)
 				{
 					s_City = SpellType.None;
@@ -356,7 +325,6 @@ namespace MoreRelics
 		}
 	}
 
-	// the SpellBase overloads are the acquisition path, a save restore takes the SpellType one
 	[HarmonyPatch]
 	internal static class Patch_GrimoireKeep
 	{
@@ -378,11 +346,18 @@ namespace MoreRelics
 		{
 			try
 			{
-				if (outgoing != null && incoming != null && outgoing != incoming && Grimoire.Active())
+				if (outgoing == null || incoming == null || outgoing == incoming || !Grimoire.Active())
 				{
-					Reserve.Set(combat, outgoing.GetSpellType());
-					Preview.Refresh();
+					return;
 				}
+				// skip if its a dublicate of the reserve spell
+				SpellType reserve = Reserve.Get(combat);
+				if (reserve != SpellType.None && reserve != incoming.GetSpellType())
+				{
+					return;
+				}
+				Reserve.Set(combat, outgoing.GetSpellType());
+				Preview.Refresh();
 			}
 			catch (Exception e)
 			{
@@ -422,7 +397,7 @@ namespace MoreRelics
 					return;
 				}
 				Preview.Build(icon);
-				// crossing into the battlefield swaps which pair is on show
+				// switching spells on the battlefield
 				SpellManager.OnSwitch -= OnSwitch;
 				SpellManager.OnSwitch += OnSwitch;
 			}
@@ -438,7 +413,6 @@ namespace MoreRelics
 		}
 	}
 
-	// the EventSystem and the Input System both see the same click, the order is not fixed
 	[HarmonyPatch(typeof(GameInputManager), "GameClick")]
 	internal static class Patch_GrimoireClick
 	{

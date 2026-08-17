@@ -4,14 +4,12 @@
 
 Six new powerful relics
 
-Offered from the same places the game's own relics come from. New ones arrive as an update to this mod, not as another download.
-
-**Cornucopia** (rare) - 1-2 random gathered resources appear every morning.  
-**Sous Chef** (rare) - the tavern cook prepares one more meat per night.  
-**Millstone** (rare) - the bakery grinds its own wheat, so bread no longer needs flour. Left out if you already run Bakery Uses Wheat.  
-**Master Key** (epic) - relics ignore their kingdom level, building and unit requirements.  
-**Grimoire** (legendary) - a new spell no longer replaces the old one. A second slot appears beside your spell, click it to switch. It starts empty and fills with the next spell you pick up.  
-**Phalanx** (legendary) - only the first unit of each column can be hurt. Found in boss chests.
+**Cornucopia** - 1-2 random raw resources every morning  
+**Sous Chef** - the tavern cook prepares one more meat per night  
+**Millstone** - the bakery grinds its own wheat, so bread no longer needs flour  
+**Master Key** - relics ignore their kingdom level, building and unit requirements. +2 Faith per day  
+**Grimoire** - a second spell slot  
+**Phalanx** - only the first unit of each column can be hurt (combat relic)
 
 Removing the mod is safe: a save that held one of these relics just loads without it.
 

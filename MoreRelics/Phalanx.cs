@@ -3,12 +3,12 @@ using SuperFantasyKingdom;
 
 namespace MoreRelics
 {
-	// ------------------------------ phalanx ------------------------------
+	// phalanx: only the first unit of each row can be hurt
 	internal sealed class Phalanx : RelicEntry
 	{
 		private const string Id = "ownly_Phalanx";
 
-		// position packs both axes: lane = pos / 10, rank = pos % 10, higher rank is further forward
+		// lane = pos / 10, rank = pos % 10, higher rank is further forward
 		private const int Lanes = 10;
 		private const int MaxRank = 5;
 		private const int LastFieldSpot = 45;
@@ -59,12 +59,11 @@ namespace MoreRelics
 		}
 	}
 
-	// ReceiveDirectDamage is ReceiveDamage(direct: true), so this one override is the whole path
+	// ReceiveDirectDamage from ReceiveDamage(direct: true)
 	[HarmonyPatch(typeof(UnitHealth), "ReceiveDamage", new[] { typeof(Damage), typeof(bool), typeof(bool) })]
 	internal static class Patch_Phalanx
 	{
-		// a blocked hit is inert on purpose, vanilla never runs
-		// so no knockback, no GetAngryAmount() chip damage, no UnitBlock sound, no OnReceiveHit
+		// skip event: no knockback, no GetAngryAmount() chip damage, no UnitBlock sound, no OnReceiveHit
 		private static bool Prefix(UnitHealth __instance, ref float __result)
 		{
 			try

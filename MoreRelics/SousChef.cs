@@ -4,7 +4,7 @@ using SuperFantasyKingdom.Tavern;
 
 namespace MoreRelics
 {
-	// ------------------------------ sous chef ------------------------------
+	// sous chef: upgrade 1 more meat per night
 	internal sealed class SousChef : RelicEntry
 	{
 		internal const int ExtraMeat = 1;
@@ -13,8 +13,8 @@ namespace MoreRelics
 		{
 			id = "ownly_SousChef",
 			cloneFrom = new[] { "GreenHouse", "BetterBerries", "Fruitarian", "SpawnTrees" },
-			rarity = Rarity.Rare,
-			cost = 6,
+			rarity = Rarity.Epic,
+			cost = 8,
 			title = "Sous Chef",
 			description = "The cook prepares one more meat per night."
 		};
@@ -32,9 +32,6 @@ namespace MoreRelics
 		}
 	}
 
-	// both readers sit behind this one call - Cook() caps cooked->gourmet and raw->cooked at it
-	// separately and TavernFeast prints it twice, so the promise and the effect cannot drift
-	// 27 bytes of IL, past the inlining limit
 	[HarmonyPatch(typeof(TavernSaveManager), "GetMeatToCook")]
 	internal static class Patch_SousChef
 	{
