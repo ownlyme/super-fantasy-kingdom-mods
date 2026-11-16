@@ -45,7 +45,6 @@ Cornucopia - 1-2 random raw resources every morning
 Sous Chef - the tavern cook prepares one more meat per night  
 Millstone - the bakery grinds its own wheat, so bread no longer needs flour  
 Master Key - relics ignore their kingdom level, building and unit requirements. +2 Faith per day  
-Grimoire - a second spell slot  
 Phalanx - only the first unit of each column can be hurt (combat relic)
 
 ## Install

@@ -11,7 +11,7 @@ using UnityEngine.UI;
 
 namespace MoreRelics
 {
-	[BepInPlugin("ownly.morerelics", "More Relics", "1.0.0")]
+	[BepInPlugin("ownly.morerelics", "More Relics", "1.1.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		internal static ManualLogSource Log;
@@ -39,8 +39,7 @@ namespace MoreRelics
 			new Millstone(),
 			new MasterKey(),
 			new Phalanx(),
-			new SousChef(),
-			new Grimoire()
+			new SousChef()
 		};
 
 		public static RelicEntry Find(string identifier)
