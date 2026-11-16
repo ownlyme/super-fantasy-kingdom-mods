@@ -18,9 +18,6 @@ Re-enables achievements while BepInEx is installed (including unlocks from chall
 **[Extra Starting Carrier](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/ExtraStartingCarrier.dll)**  
 Start each run with one extra carrier.
 
-**[Daily Free Spell](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/DailyFreeSpell.dll)**  
-The first spell you cast each day is free, combat or city.
-
 **[Lone Bonfire](https://github.com/ownlyme/super-fantasy-kingdom-mods/releases/download/v1.0/LoneBonfire.dll)**  
 You can build only one bonfire, and it scales: +10% monsters for every outpost spot you have revealed, instead of a flat +10%.  
 
