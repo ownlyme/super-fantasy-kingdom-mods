@@ -4,7 +4,7 @@
 		<TargetFramework>net48</TargetFramework>
 		<AssemblyName>RightClickSkip</AssemblyName>
 		<Product>Right Click Skip</Product>
-		<Version>1.1.0</Version>
+		<Version>1.2.0</Version>
 		<LangVersion>latest</LangVersion>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
 		<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
@@ -48,6 +48,10 @@
 		</Reference>
 		<Reference Include="Unity.InputSystem">
 			<HintPath>$(GameManaged)\Unity.InputSystem.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="PrimeTween.Runtime">
+			<HintPath>$(GameManaged)\PrimeTween.Runtime.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
 	</ItemGroup>

@@ -4,7 +4,9 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using BepInEx;
 using HarmonyLib;
+using PrimeTween;
 using SuperFantasyKingdom;
+using SuperFantasyKingdom.Tavern;
 using SuperFantasyKingdom.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -12,7 +14,7 @@ using SplashScreen = UnityEngine.Rendering.SplashScreen;
 
 namespace RightClickSkip
 {
-	[BepInPlugin("ownly.rightclickskip", "Right Click Skip", "1.1.0")]
+	[BepInPlugin("ownly.rightclickskip", "Right Click Skip", "1.2.0")]
 	public class Plugin : BaseUnityPlugin
 	{
 		private const int IntervalMs = 25;
@@ -36,6 +38,21 @@ namespace RightClickSkip
 		private void Update()
 		{
 			s_Running = true;
+			// overlays turn the Game map off, GameCancel never fires there
+			try
+			{
+				if ((CardPick.Bouncing != null || EnemyPick.Animating)
+					&& Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame
+					&& (PauseMenuManger.Instance == null || !PauseMenuManger.Instance.InMenu()))
+				{
+					// enemy first, the completed bounce runs its Callback on the spot
+					EnemyPick.Skip();
+					CardPick.Skip();
+				}
+			}
+			catch
+			{
+			}
 		}
 
 		// the splash owns the main loop, no Update until it is over. hence a thread and GetAsyncKeyState
@@ -186,6 +203,208 @@ namespace RightClickSkip
 			catch
 			{
 			}
+			return true;
+		}
+	}
+
+	// ------------------------------ tavern ------------------------------
+
+	// a wait a left click started is left alone, Next would run twice
+	[HarmonyPatch(typeof(TavernFeast), "Skip", new[] { typeof(InputAction.CallbackContext) })]
+	internal static class Patch_FeastRightClick
+	{
+		private static bool Prefix(TavernFeast __instance, InputAction.CallbackContext context)
+		{
+			try
+			{
+				if (!context.performed || !(context.control?.device is Mouse mouse) || context.control != mouse.rightButton)
+				{
+					return true;
+				}
+				if (!__instance.gameObject.activeSelf || !__instance.enabled || PauseMenuManger.Instance.InMenu()
+					|| !Traverse.Create(__instance).Field("m_IsDoneFeasting").GetValue<bool>())
+				{
+					return true;
+				}
+				__instance.Next();
+				return false;
+			}
+			catch
+			{
+			}
+			return true;
+		}
+	}
+
+	// this Skip waits for Time.time to move, and Init pauses time
+	[HarmonyPatch(typeof(TavernSummary), "Skip", new[] { typeof(InputAction.CallbackContext) })]
+	internal static class Patch_SummaryRightClick
+	{
+		private static bool Prefix(TavernSummary __instance, InputAction.CallbackContext context)
+		{
+			try
+			{
+				if (!(context.control?.device is Mouse mouse) || context.control != mouse.rightButton)
+				{
+					return true;
+				}
+				__instance.Continue(context);
+				return false;
+			}
+			catch
+			{
+			}
+			return true;
+		}
+	}
+
+	// ------------------------------ card picks ------------------------------
+	// completing the bounce fires the card's own callback now
+
+	internal static class CardPick
+	{
+		internal static UICard Bouncing;
+
+		internal static void Skip()
+		{
+			UICard card = Bouncing;
+			Bouncing = null;
+			if (card != null)
+			{
+				Tween.CompleteAll(card.transform);
+			}
+		}
+	}
+
+	// absent on 0.7.085
+	[HarmonyPatch]
+	internal static class Patch_CardPick
+	{
+		private static MethodBase TargetMethod()
+		{
+			return AccessTools.Method(typeof(UIOverlayMerchant), "Select", new[] { typeof(UICard) });
+		}
+
+		private static bool Prepare()
+		{
+			return TargetMethod() != null;
+		}
+
+		private static void Postfix(UICard selected)
+		{
+			CardPick.Bouncing = selected;
+			if (EnemyPick.Stage == EnemyPick.Step.Open)
+			{
+				EnemyPick.Stage = EnemyPick.Step.Picked;
+			}
+		}
+	}
+
+	// ------------------------------ day's enemy ------------------------------
+	// the pending delays cannot be stopped, the prefixes drop them once Finish ran
+
+	internal static class EnemyPick
+	{
+		internal enum Step { Idle, Open, Picked, Jumping, Updated, Done }
+
+		internal static readonly MethodInfo UpdateInfos = AccessTools.Method(typeof(UIMerchantMonsterSelection), "UpdateInfos");
+		internal static readonly MethodInfo Finish = AccessTools.Method(typeof(UIMerchantMonsterSelection), "Finish");
+
+		internal static UIMerchantMonsterSelection Selection;
+		internal static Step Stage;
+		internal static bool Queued;
+
+		internal static bool Animating
+		{
+			get { return Stage == Step.Picked || Stage == Step.Jumping || Stage == Step.Updated; }
+		}
+
+		internal static void Skip()
+		{
+			if (Stage == Step.Picked)
+			{
+				Queued = true;
+				return;
+			}
+			if (Stage == Step.Jumping)
+			{
+				UpdateInfos.Invoke(Selection, null);
+			}
+			if (Stage == Step.Updated)
+			{
+				Finish.Invoke(Selection, null);
+			}
+		}
+	}
+
+	[HarmonyPatch]
+	internal static class Patch_EnemyPick
+	{
+		private static bool Prepare()
+		{
+			return EnemyPick.UpdateInfos != null && EnemyPick.Finish != null
+				&& AccessTools.Method(typeof(UIMerchantMonsterSelection), "Callback") != null;
+		}
+
+		[HarmonyPatch(typeof(UIMerchantMonsterSelection), "Awake")]
+		[HarmonyPostfix]
+		private static void Reset(UIMerchantMonsterSelection __instance)
+		{
+			EnemyPick.Selection = __instance;
+			EnemyPick.Stage = EnemyPick.Step.Idle;
+			EnemyPick.Queued = false;
+		}
+
+		[HarmonyPatch(typeof(UIMerchantMonsterSelection), "Reroll")]
+		[HarmonyPostfix]
+		private static void Opened()
+		{
+			if (EnemyPick.Stage == EnemyPick.Step.Idle)
+			{
+				EnemyPick.Stage = EnemyPick.Step.Open;
+			}
+		}
+
+		[HarmonyPatch(typeof(UIMerchantMonsterSelection), "Callback")]
+		[HarmonyPostfix]
+		private static void Jumping(UIMerchantMonsterSelection __instance)
+		{
+			try
+			{
+				EnemyPick.Selection = __instance;
+				EnemyPick.Stage = EnemyPick.Step.Jumping;
+				if (EnemyPick.Queued)
+				{
+					EnemyPick.Queued = false;
+					EnemyPick.Skip();
+				}
+			}
+			catch
+			{
+			}
+		}
+
+		[HarmonyPatch(typeof(UIMerchantMonsterSelection), "UpdateInfos")]
+		[HarmonyPrefix]
+		private static bool Updating()
+		{
+			if (EnemyPick.Stage == EnemyPick.Step.Done)
+			{
+				return false;
+			}
+			EnemyPick.Stage = EnemyPick.Step.Updated;
+			return true;
+		}
+
+		[HarmonyPatch(typeof(UIMerchantMonsterSelection), "Finish")]
+		[HarmonyPrefix]
+		private static bool Finishing()
+		{
+			if (EnemyPick.Stage == EnemyPick.Step.Done)
+			{
+				return false;
+			}
+			EnemyPick.Stage = EnemyPick.Step.Done;
 			return true;
 		}
 	}
